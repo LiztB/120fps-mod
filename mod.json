@@ -51,6 +51,18 @@
             "description": "Retrasa tu clic esos frames (0 = apagado)",
             "default": "0",
             "one-of": ["0", "3", "5", "10", "15", "20", "30"]
+        },
+        "entrenador": {
+            "type": "bool",
+            "name": "Entrenador de timing",
+            "description": "Muestra si tu clic fue temprano o tarde respecto a tu pasada de referencia",
+            "default": false
+        },
+        "entrenador_grabar": {
+            "type": "bool",
+            "name": "Grabar referencia",
+            "description": "Enciéndelo, entra al nivel y haz una pasada buena. Se apaga solo al salir del nivel",
+            "default": false
         }
     },
     "dependencies": {
