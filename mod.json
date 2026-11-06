@@ -1,26 +1,45 @@
 {
-	"geode": "5.11.2",
-	"gd": {
+    "geode": "5.11.2",
+    "gd": {
         "win": "2.2081",
         "android": "2.2081",
         "mac": "2.2081",
         "ios": "2.2081"
     },
-	"id": "240fps.modliztb",
-	"name": "DRAW DIVIDE MOBILE",
-	"version": "v1.0.1",
-	"developer": "LiztB",
-	"description": "Update the game to 120fps even if it's running at 60fps",
+    "id": "240fps.modliztb",
+    "name": "DRAW DIVIDE MOBILE",
+    "version": "v1.0.1",
+    "developer": "LiztB",
+    "description": "Update the game to 120fps even if it's running at 60fps",
     "settings": {
         "divisiones": {
             "type": "string",
             "name": "Divisiones por frame",
-            "description": "1 = normal (60), 2 = 120, 4 = 240",
+            "description": "1 = normal (60fps), 2 = 120fps, 4 = 240fps (solo recomendado a dispostivos de gama media-alta o alta)",
             "default": "2",
             "one-of": ["1", "2", "4"]
+        },
+        "divisiones_wave": {
+            "type": "string",
+            "name": "Divisiones en el Wave",
+            "description": "Divisiones solo mientras eres Wave (1 = normal)",
+            "default": "2",
+            "one-of": ["1", "2", "4"]
+        },
+        "wave_activo": {
+            "type": "bool",
+            "name": "Usar divisiones distintas en el Wave",
+            "description": "Encendido: el Wave usa sus propias divisiones. Apagado: corre igual que el resto.",
+            "default": true
+        },
+        "automatico": {
+            "type": "bool",
+            "name": "Ajuste automático",
+            "description": "Baja las divisiones si hay lag y las sube cuando mejora",
+            "default": true
         }
     },
-	"dependencies": {
-		"geode.node-ids": ">=v1.23.3"
-	}
+    "dependencies": {
+        "geode.node-ids": ">=v1.23.3"
+    }
 }
