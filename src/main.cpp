@@ -35,14 +35,14 @@ struct Evento {
 static std::deque<Evento> g_eventos;
 
 // Entrenador de timing
-struct Ref {
+struct PuntoRef {
     float x;
     bool down;
 };
 static bool g_entrenador = false;
 static bool g_grabando = false;
 static bool g_vioNivel = false;
-static std::vector<Ref> g_refs;
+static std::vector<PuntoRef> g_refs;
 static std::string g_nivelRef;
 static float g_xPrev = 0.f;
 static float g_vx = 5.4f;
@@ -126,7 +126,7 @@ static void alPulsar(PlayLayer* pl, bool down) {
         if (g_refs.empty()) g_nivelRef = nombreNivel(pl);
         g_refs.erase(
             std::remove_if(g_refs.begin(), g_refs.end(),
-                           [x](Ref const& r) { return r.x >= x; }),
+                           [x](PuntoRef const& r) { return r.x >= x; }),
             g_refs.end());
         g_refs.push_back({x, down});
         return;
