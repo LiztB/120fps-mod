@@ -1,10 +1,10 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/GJBaseGameLayer.hpp>
+#include <Geode/modify/CCScheduler.hpp>
 
 using namespace geode::prelude;
 
-static int g_max = 2;        // lo que eliges en el menú
-static int g_actual = 2;     // lo que usa el mod ahora mismo
+static int g_max = 2;
+static int g_actual = 2;
 static bool g_auto = true;
 static int g_lentos = 0;
 static int g_rapidos = 0;
@@ -33,7 +33,7 @@ $on_mod(Loaded) {
     });
 }
 
-class $modify(GJBaseGameLayer) {
+class $modify(CCScheduler) {
     void update(float dt) {
         if (g_auto && g_max > 1) {
             if (dt > 0.0235f) {
@@ -59,12 +59,12 @@ class $modify(GJBaseGameLayer) {
 
         int n = g_actual;
         if (n <= 1) {
-            GJBaseGameLayer::update(dt);
+            CCScheduler::update(dt);
             return;
         }
         float parte = dt / n;
         for (int i = 0; i < n; i++) {
-            GJBaseGameLayer::update(parte);
+            CCScheduler::update(parte);
         }
     }
 };
