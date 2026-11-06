@@ -1,11 +1,12 @@
-#include <Geode/modify/PauseLayer.hpp>
-#include <Geode/modify/LevelInfoLayer.hpp>
-#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
+#include <Geode/modify/PauseLayer.hpp>
+#include <Geode/modify/LevelInfoLayer.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <deque>
 #include <vector>
 
@@ -38,6 +39,7 @@ static std::deque<Evento> g_eventos;
 struct PuntoRef {
     float x;
     bool down;
+    int paso;
 };
 static bool g_entrenador = false;
 static bool g_grabando = false;
@@ -46,6 +48,9 @@ static std::vector<PuntoRef> g_refs;
 static std::string g_nivelRef;
 static float g_xPrev = 0.f;
 static float g_vx = 5.4f;
+
+// pasos de física por cada frame de 60 FPS (240 por segundo)
+constexpr float PASOS_POR_FRAME = 4.0f;
 
 static int leerDivisiones(char const* clave, int porDefecto) {
     auto texto = Mod::get()->getSettingValue<std::string>(clave);
@@ -121,6 +126,7 @@ static void mostrarTexto(PlayLayer* pl, std::string const& texto, ccColor3B colo
 static void alPulsar(PlayLayer* pl, bool down) {
     if (!pl || !pl->m_player1) return;
     float x = pl->m_player1->getPositionX();
+    int paso = static_cast<int>(pl->m_gameState.m_currentProgress);
 
     if (g_grabando) {
         if (g_refs.empty()) g_nivelRef = nombreNivel(pl);
@@ -128,7 +134,7 @@ static void alPulsar(PlayLayer* pl, bool down) {
             std::remove_if(g_refs.begin(), g_refs.end(),
                            [x](PuntoRef const& r) { return r.x >= x; }),
             g_refs.end());
-        g_refs.push_back({x, down});
+        g_refs.push_back({x, down, paso});
         return;
     }
 
@@ -136,24 +142,39 @@ static void alPulsar(PlayLayer* pl, bool down) {
 
     bool hay = false;
     float mejor = 0.f;
+    int mejorPaso = 0;
     for (auto const& r : g_refs) {
         if (r.down != down) continue;
         float dx = x - r.x;
         if (!hay || std::fabs(dx) < std::fabs(mejor)) {
             mejor = dx;
+            mejorPaso = r.paso;
             hay = true;
         }
     }
     if (!hay || std::fabs(mejor) > 250.f) return;
 
-    int frames = static_cast<int>(std::lround(mejor / g_vx));
+    float framesX = mejor / g_vx;
+    float framesPaso = static_cast<float>(paso - mejorPaso) / PASOS_POR_FRAME;
+
+    float frames = framesPaso;
+    bool aprox = false;
+    if (std::fabs(framesPaso - framesX) > 3.f) {
+        frames = framesX;
+        aprox = true;
+    }
+
     std::string accion = down ? "Clic: " : "Soltar: ";
-    if (frames == 0) {
-        mostrarTexto(pl, accion + "Perfecto", ccColor3B{80, 255, 80});
-    } else if (frames > 0) {
-        mostrarTexto(pl, accion + "+" + std::to_string(frames) + " tarde", ccColor3B{255, 120, 80});
+    std::string extra = aprox ? " (aprox)" : "";
+    char numero[16];
+    std::snprintf(numero, sizeof(numero), "%.1f", std::fabs(frames));
+
+    if (std::fabs(frames) < 0.25f) {
+        mostrarTexto(pl, accion + "Perfecto" + extra, ccColor3B{80, 255, 80});
+    } else if (frames > 0.f) {
+        mostrarTexto(pl, accion + "+" + numero + " tarde" + extra, ccColor3B{255, 120, 80});
     } else {
-        mostrarTexto(pl, accion + std::to_string(-frames) + " temprano", ccColor3B{80, 180, 255});
+        mostrarTexto(pl, accion + numero + " temprano" + extra, ccColor3B{80, 180, 255});
     }
 }
 
