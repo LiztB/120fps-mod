@@ -11,6 +11,15 @@
 	"version": "v1.0.0",
 	"developer": "LiztB",
 	"description": "Update the game to 120fps even if it's running at 60fps",
+    "settings": {
+        "divisiones": {
+            "type": "string",
+            "name": "Divisiones por frame",
+            "description": "1 = normal (60), 2 = 120, 4 = 240",
+            "default": "2",
+            "one-of": ["1", "2", "4"]
+        }
+    },
 	"dependencies": {
 		"geode.node-ids": ">=v1.23.3"
 	}
