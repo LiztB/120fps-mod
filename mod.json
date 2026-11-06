@@ -37,6 +37,13 @@
             "name": "Ajuste automático",
             "description": "Baja las divisiones si hay lag y las sube cuando mejora",
             "default": true
+        },
+        "buffer_frames": {
+            "type": "string",
+            "name": "Margen del buffer de clics",
+            "description": "Frames de margen para el clic del cubo (0 = apagado)",
+            "default": "0",
+            "one-of": ["0", "3", "5", "10"]
         }
     },
     "dependencies": {
