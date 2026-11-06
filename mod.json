@@ -7,8 +7,8 @@
         "ios": "2.2081"
     },
     "id": "240fps.modliztb",
-    "name": "DRAW DIVIDE MOBILE",
-    "version": "v1.0.1",
+    "name": "DRAW DIVIDE MOBILE + BUFFER",
+    "version": "v1.1.0",
     "developer": "LiztB",
     "description": "Update the game to 120fps even if it's running at 60fps",
     "settings": {
