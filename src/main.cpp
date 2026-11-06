@@ -1,7 +1,13 @@
+#include <Geode/modify/PauseLayer.hpp>
+#include <Geode/modify/LevelInfoLayer.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/Geode.hpp>
 #include <Geode/modify/CCScheduler.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
+#include <algorithm>
+#include <cmath>
 #include <deque>
+#include <vector>
 
 using namespace geode::prelude;
 
@@ -27,6 +33,19 @@ struct Evento {
     int frames;
 };
 static std::deque<Evento> g_eventos;
+
+// Entrenador de timing
+struct Ref {
+    float x;
+    bool down;
+};
+static bool g_entrenador = false;
+static bool g_grabando = false;
+static bool g_vioNivel = false;
+static std::vector<Ref> g_refs;
+static std::string g_nivelRef;
+static float g_xPrev = 0.f;
+static float g_vx = 5.4f;
 
 static int leerDivisiones(char const* clave, int porDefecto) {
     auto texto = Mod::get()->getSettingValue<std::string>(clave);
@@ -56,6 +75,7 @@ static void leerAjustes() {
     g_auto = Mod::get()->getSettingValue<bool>("automatico");
     g_bufferMax = leerFrames("buffer_frames");
     g_retraso = leerFrames("retraso_frames");
+    g_entrenador = Mod::get()->getSettingValue<bool>("entrenador");
     g_lentos = 0;
     g_rapidos = 0;
     g_cola = 0;
@@ -74,6 +94,69 @@ static bool esDeSuelo(PlayerObject* p) {
     return !(p->m_isShip || p->m_isBird || p->m_isDart || p->m_isSwing);
 }
 
+static std::string nombreNivel(PlayLayer* pl) {
+    if (!pl || !pl->m_level) return "";
+    std::string nombre = pl->m_level->m_levelName;
+    return nombre;
+}
+
+static void mostrarTexto(PlayLayer* pl, std::string const& texto, ccColor3B color) {
+    auto etiqueta = static_cast<CCLabelBMFont*>(pl->getChildByID("timing-trainer-label"_spr));
+    if (!etiqueta) {
+        etiqueta = CCLabelBMFont::create("", "bigFont.fnt");
+        etiqueta->setID("timing-trainer-label"_spr);
+        etiqueta->setScale(0.5f);
+        auto win = CCDirector::get()->getWinSize();
+        etiqueta->setPosition({win.width / 2.f, win.height - 40.f});
+        pl->addChild(etiqueta, 1000);
+    }
+    etiqueta->setString(texto.c_str());
+    etiqueta->setColor(color);
+    etiqueta->stopAllActions();
+    etiqueta->setOpacity(255);
+    etiqueta->runAction(CCSequence::create(
+        CCDelayTime::create(1.0f), CCFadeOut::create(0.3f), nullptr));
+}
+
+static void alPulsar(PlayLayer* pl, bool down) {
+    if (!pl || !pl->m_player1) return;
+    float x = pl->m_player1->getPositionX();
+
+    if (g_grabando) {
+        if (g_refs.empty()) g_nivelRef = nombreNivel(pl);
+        g_refs.erase(
+            std::remove_if(g_refs.begin(), g_refs.end(),
+                           [x](Ref const& r) { return r.x >= x; }),
+            g_refs.end());
+        g_refs.push_back({x, down});
+        return;
+    }
+
+    if (!g_entrenador || g_refs.empty() || nombreNivel(pl) != g_nivelRef) return;
+
+    bool hay = false;
+    float mejor = 0.f;
+    for (auto const& r : g_refs) {
+        if (r.down != down) continue;
+        float dx = x - r.x;
+        if (!hay || std::fabs(dx) < std::fabs(mejor)) {
+            mejor = dx;
+            hay = true;
+        }
+    }
+    if (!hay || std::fabs(mejor) > 250.f) return;
+
+    int frames = static_cast<int>(std::lround(mejor / g_vx));
+    std::string accion = down ? "Clic: " : "Soltar: ";
+    if (frames == 0) {
+        mostrarTexto(pl, accion + "Perfecto", ccColor3B{80, 255, 80});
+    } else if (frames > 0) {
+        mostrarTexto(pl, accion + "+" + std::to_string(frames) + " tarde", ccColor3B{255, 120, 80});
+    } else {
+        mostrarTexto(pl, accion + std::to_string(-frames) + " temprano", ccColor3B{80, 180, 255});
+    }
+}
+
 static void inyectar(bool down, int button, bool isPlayer1) {
     auto pl = PlayLayer::get();
     if (!pl) return;
@@ -88,8 +171,20 @@ static void procesarBuffer() {
         g_eventos.clear();
         g_cola = 0;
         g_liberar = false;
+        if (g_grabando && g_vioNivel) {
+            g_grabando = false;
+            g_vioNivel = false;
+            Mod::get()->setSettingValue<bool>("entrenador_grabar", false);
+        }
         return;
     }
+
+    if (g_grabando) g_vioNivel = true;
+
+    float x = pl->m_player1->getPositionX();
+    float v = x - g_xPrev;
+    if (v > 0.5f && v < 40.f) g_vx = v;
+    g_xPrev = x;
 
     for (auto& e : g_eventos) e.frames--;
     while (!g_eventos.empty() && g_eventos.front().frames <= 0) {
@@ -115,6 +210,7 @@ static void procesarBuffer() {
 
 $on_mod(Loaded) {
     leerAjustes();
+    g_grabando = Mod::get()->getSettingValue<bool>("entrenador_grabar");
     listenForSettingChanges<std::string>("divisiones", [](std::string) {
         leerAjustes();
     });
@@ -133,11 +229,24 @@ $on_mod(Loaded) {
     listenForSettingChanges<bool>("automatico", [](bool) {
         leerAjustes();
     });
+    listenForSettingChanges<bool>("entrenador", [](bool) {
+        leerAjustes();
+    });
+    listenForSettingChanges<bool>("entrenador_grabar", [](bool valor) {
+        g_grabando = valor;
+        g_vioNivel = false;
+        if (valor) {
+            g_refs.clear();
+            g_nivelRef.clear();
+        }
+    });
 }
 
 class $modify(GJBaseGameLayer) {
     void handleButton(bool down, int button, bool isPlayer1) {
         if (!g_inyectando && button == 1 && isPlayer1 && m_player1) {
+            alPulsar(PlayLayer::get(), down);
+
             bool suelo = esDeSuelo(m_player1);
 
             if (!g_eventos.empty() || (g_retraso > 0 && !suelo)) {
@@ -197,5 +306,44 @@ class $modify(CCScheduler) {
         }
 
         procesarBuffer();
+    }
+};
+
+// Botón de ajustes en la pausa
+class $modify(MiPausa, PauseLayer) {
+    void customSetup() {
+        PauseLayer::customSetup();
+        auto win = CCDirector::get()->getWinSize();
+        auto menu = CCMenu::create();
+        auto boton = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create("Ajustes"), this, menu_selector(MiPausa::abrirAjustes));
+        menu->addChild(boton);
+        menu->setScale(0.6f);
+        menu->setPosition({win.width - 55.f, 25.f});
+        this->addChild(menu);
+    }
+
+    void abrirAjustes(CCObject*) {
+        openSettingsPopup(Mod::get());
+    }
+};
+
+// Botón de ajustes antes de entrar al nivel
+class $modify(MiNivelInfo, LevelInfoLayer) {
+    bool init(GJGameLevel* nivel, bool desafio) {
+        if (!LevelInfoLayer::init(nivel, desafio)) return false;
+        auto win = CCDirector::get()->getWinSize();
+        auto menu = CCMenu::create();
+        auto boton = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create("Ajustes"), this, menu_selector(MiNivelInfo::abrirAjustes));
+        menu->addChild(boton);
+        menu->setScale(0.6f);
+        menu->setPosition({win.width - 55.f, 25.f});
+        this->addChild(menu);
+        return true;
+    }
+
+    void abrirAjustes(CCObject*) {
+        openSettingsPopup(Mod::get());
     }
 };
