@@ -5,27 +5,47 @@ using namespace geode::prelude;
 
 static int g_max = 2;
 static int g_actual = 2;
+static int g_wave = 2;
+static bool g_waveActivo = true;
 static bool g_auto = true;
 static int g_lentos = 0;
 static int g_rapidos = 0;
 
-static void leerAjustes() {
-    auto texto = Mod::get()->getSettingValue<std::string>("divisiones");
-    int valor = 2;
+static int leerDivisiones(char const* clave, int porDefecto) {
+    auto texto = Mod::get()->getSettingValue<std::string>(clave);
+    int valor = porDefecto;
     try {
         valor = std::stoi(texto);
     } catch (...) {}
-    if (valor != 1 && valor != 2 && valor != 4) valor = 2;
-    g_max = valor;
-    g_actual = valor;
+    if (valor != 1 && valor != 2 && valor != 4) valor = porDefecto;
+    return valor;
+}
+
+static void leerAjustes() {
+    g_max = leerDivisiones("divisiones", 2);
+    g_actual = g_max;
+    g_wave = leerDivisiones("divisiones_wave", 2);
+    g_waveActivo = Mod::get()->getSettingValue<bool>("wave_activo");
     g_auto = Mod::get()->getSettingValue<bool>("automatico");
     g_lentos = 0;
     g_rapidos = 0;
 }
 
+static bool enWave() {
+    auto pl = PlayLayer::get();
+    if (!pl || !pl->m_player1) return false;
+    return pl->m_player1->m_isDart;
+}
+
 $on_mod(Loaded) {
     leerAjustes();
     listenForSettingChanges<std::string>("divisiones", [](std::string) {
+        leerAjustes();
+    });
+    listenForSettingChanges<std::string>("divisiones_wave", [](std::string) {
+        leerAjustes();
+    });
+    listenForSettingChanges<bool>("wave_activo", [](bool) {
         leerAjustes();
     });
     listenForSettingChanges<bool>("automatico", [](bool) {
@@ -58,6 +78,8 @@ class $modify(CCScheduler) {
         }
 
         int n = g_actual;
+        if (g_waveActivo && enWave() && n > g_wave) n = g_wave;
+
         if (n <= 1) {
             CCScheduler::update(dt);
             return;
